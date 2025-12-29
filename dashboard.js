@@ -1,8 +1,8 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-import { getFirestore, doc, getDoc, updateDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { getFirestore, doc, onSnapshot, updateDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-// --- 1. FIREBASE CONFIG ---
+// --- FIREBASE CONFIG ---
 const firebaseConfig = {
     apiKey: "YOUR_API_KEY",
     authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
@@ -16,216 +16,160 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
+// --- API SETTINGS ---
+const API_KEY = "e4c5d4fcc56363f572a597267b42e5d2";
+const PROXY = "https://corsproxy.io/?";
+const BASE_URL = "http://otpget.com/stubs/handler_api.php";
+
 let currentUID = null;
 let userBalance = 0;
-let otpPollingInterval = null;
+let pollingTimer = null;
 
-// --- 2. AUTH STATE & INITIAL LOAD ---
+// --- INITIALIZE DASHBOARD ---
 onAuthStateChanged(auth, (user) => {
     if (user) {
         currentUID = user.uid;
-        document.getElementById('userEmail').innerText = user.email.split('@')[0];
+        document.getElementById('userName').innerText = user.email.split('@')[0];
         
-        // Real-time Balance Listener (Firebase se balance khud hi update hota rahega)
+        // Listen to balance changes
         onSnapshot(doc(db, "users", user.uid), (doc) => {
             if (doc.exists()) {
                 userBalance = doc.data().balance || 0;
-                document.getElementById('userBalance').innerText = userBalance.toFixed(2);
+                document.getElementById('userBalanceDisplay').innerText = userBalance.toFixed(2);
             }
         });
 
-        loadCountries(); // API se countries load karein
+        loadCountries();
     } else {
         window.location.href = "auth.html";
     }
 });
 
-// --- 3. FETCH COUNTRIES (API) ---
-async function loadCountries() {
-    const countrySelect = document.getElementById('countrySelect');
-    try {
-        const response = await fetch('/.netlify/functions/api-bridge?action=getCountries');
-        const data = await response.json();
-        
-        // Agar response string hai (e.g. "0:Russia|1:Ukraine")
-        let countries = typeof data.message === 'string' ? parsePipeData(data.message) : data;
-
-        countrySelect.innerHTML = '<option value="">-- Select Server --</option>';
-        Object.entries(countries).forEach(([id, name]) => {
-            let opt = document.createElement('option');
-            opt.value = id;
-            opt.innerText = name;
-            countrySelect.appendChild(opt);
-        });
-    } catch (err) {
-        console.error("Countries Load Error:", err);
-        countrySelect.innerHTML = '<option value="">Error Loading Servers</option>';
-    }
+// Helper function to call API via Proxy
+async function callApi(params) {
+    const url = `${BASE_URL}?api_key=${API_KEY}&${params}`;
+    const response = await fetch(PROXY + encodeURIComponent(url));
+    return await response.text();
 }
 
-// --- 4. FETCH SERVICES (API) ---
+// 1. Load Countries
+async function loadCountries() {
+    try {
+        const data = await callApi("action=getCountries");
+        const select = document.getElementById('countrySelect');
+        select.innerHTML = '<option value="">-- Choose Server --</option>';
+        
+        data.split('|').forEach(item => {
+            const [id, name] = item.split(':');
+            if(id && name) {
+                let opt = document.createElement('option');
+                opt.value = id;
+                opt.innerText = name;
+                select.appendChild(opt);
+            }
+        });
+    } catch (e) { console.error("Error loading countries"); }
+}
+
+// 2. Load Services on Country Change
 document.getElementById('countrySelect').addEventListener('change', async (e) => {
     const countryId = e.target.value;
-    const serviceSelect = document.getElementById('serviceSelect');
-    if (!countryId) return;
+    const sSelect = document.getElementById('serviceSelect');
+    if(!countryId) return;
 
-    serviceSelect.innerHTML = '<option value="">Loading Services...</option>';
+    sSelect.innerHTML = '<option>Loading Services...</option>';
 
     try {
-        const response = await fetch(`/.netlify/functions/api-bridge?action=getServices&country=${countryId}`);
-        const data = await response.json();
+        const data = await callApi(`action=getServices&country=${countryId}`);
+        // otpget returns JSON for services usually
+        const services = JSON.parse(data);
         
-        let services = typeof data.message === 'string' ? JSON.parse(data.message) : data;
-
-        serviceSelect.innerHTML = '<option value="">-- Select Service --</option>';
-        
-        // Services dropdown bharna
+        sSelect.innerHTML = '<option value="">-- Select Service --</option>';
         services.forEach(s => {
             let opt = document.createElement('option');
             opt.value = s.code;
-            
-            // PRICE CALCULATION: Maan lo API price 10 hai, hum usay PKR mein convert kar ke profit add kar rahay hain
-            // Formula: (API_Price * Exchange_Rate) + Profit
-            let pkrPrice = Math.ceil((s.price * 4) + 15); // Example Calculation
-            
-            opt.innerText = `${s.name.toUpperCase()} - RS ${pkrPrice}`;
-            opt.dataset.price = pkrPrice; 
-            serviceSelect.appendChild(opt);
+            // Profit Calculation: (API Price * 5) + 10 RS
+            let pkr = Math.ceil((s.price * 5) + 10); 
+            opt.innerText = `${s.name.toUpperCase()} - RS ${pkr}`;
+            opt.dataset.price = pkr;
+            sSelect.appendChild(opt);
         });
-    } catch (err) {
-        serviceSelect.innerHTML = '<option value="">Service not available</option>';
-    }
+    } catch (e) { sSelect.innerHTML = '<option>Error loading</option>'; }
 });
 
-// Service select hone par price display update karna
+// Price Display Update
 document.getElementById('serviceSelect').addEventListener('change', (e) => {
-    const selected = e.target.selectedOptions[0];
-    const price = selected ? selected.dataset.price : "0.00";
-    document.getElementById('priceDisplay').innerText = price;
+    const price = e.target.selectedOptions[0]?.dataset.price || "0.00";
+    document.getElementById('finalPrice').innerText = price;
 });
 
-// --- 5. BUY NUMBER LOGIC ---
+// 3. Buy Number Logic
 document.getElementById('getNumberBtn').addEventListener('click', async () => {
-    const country = document.getElementById('countrySelect').value;
-    const service = document.getElementById('serviceSelect').value;
-    const selectedOption = document.getElementById('serviceSelect').selectedOptions[0];
-    
-    if (!country || !service) {
-        alert("Please select both Country and Service!");
-        return;
-    }
+    const c = document.getElementById('countrySelect').value;
+    const s = document.getElementById('serviceSelect').value;
+    const price = parseFloat(document.getElementById('serviceSelect').selectedOptions[0]?.dataset.price);
 
-    const price = parseFloat(selectedOption.dataset.price);
-
-    // Balance Check
-    if (userBalance < price) {
-        alert("In-sufficient Balance! Please add funds.");
-        return;
-    }
+    if(!c || !s) return alert("Select Country & Service!");
+    if(userBalance < price) return alert("Insufficient Balance!");
 
     const btn = document.getElementById('getNumberBtn');
     btn.disabled = true;
-    btn.innerHTML = '<i class="fa-solid fa-spinner animate-spin"></i> Processing...';
+    btn.innerText = "Requesting...";
 
     try {
-        // Request Number from Netlify Function
-        const response = await fetch(`/.netlify/functions/api-bridge?action=getNumber&country=${country}&service=${service}`);
-        const result = await response.json();
-        const msg = result.message; // E.g. "ACCESS_NUMBER:ID:NUMBER"
-
-        if (msg.includes("ACCESS_NUMBER")) {
-            const parts = msg.split(':');
-            const activationId = parts[1];
-            const phoneNumber = parts[2];
-
-            // 1. Deduct Balance in Firebase
-            const newBalance = userBalance - price;
-            await updateDoc(doc(db, "users", currentUID), { balance: newBalance });
-
-            // 2. Show UI
-            showActiveNumberUI(phoneNumber, activationId);
+        const result = await callApi(`action=getNumber&service=${s}&country=${c}`);
+        
+        if (result.includes("ACCESS_NUMBER")) {
+            const [_, id, num] = result.split(':');
+            
+            // Deduct from Firebase
+            await updateDoc(doc(db, "users", currentUID), { balance: userBalance - price });
+            
+            // Update UI
+            showOrder(num, id);
         } else {
-            alert("API Error: " + msg);
+            alert("API Message: " + result);
         }
-    } catch (err) {
-        alert("Failed to connect to API bridge.");
-    } finally {
-        btn.disabled = false;
-        btn.innerText = "Get Number";
-    }
+    } catch (e) { alert("API Connection Failed"); }
+    btn.disabled = false;
+    btn.innerText = "Get Number";
 });
 
-// --- 6. OTP POLLING (Check OTP every 5s) ---
-function showActiveNumberUI(num, id) {
-    const display = document.getElementById('activeNumberDisplay');
+// 4. Show Active Order & Poll OTP
+function showOrder(num, id) {
+    const display = document.getElementById('numberDisplay');
     display.innerHTML = `
-        <div class="w-full text-center p-8 bg-blue-50 rounded-[2rem] border-2 border-blue-100" data-aos="zoom-in">
-            <p class="text-xs font-black text-blue-600 uppercase tracking-widest mb-2">Your New Number</p>
-            <h2 class="text-4xl font-black text-slate-800 mb-6 tracking-tighter">${num}</h2>
-            
-            <div id="otpBox" class="bg-white p-6 rounded-2xl border-2 border-dashed border-blue-200 mb-6">
-                <p class="text-slate-400 font-bold animate-pulse">Waiting for OTP code...</p>
+        <div class="text-center p-6 w-full max-w-sm">
+            <p class="text-xs font-black text-blue-600 uppercase mb-2">Number Ready</p>
+            <h2 class="text-4xl font-black text-slate-800 mb-6">${num}</h2>
+            <div id="otpBox" class="bg-blue-50 p-6 rounded-2xl border-2 border-dashed border-blue-200 mb-6">
+                <p class="animate-pulse text-slate-400 font-bold">Waiting for SMS...</p>
             </div>
-
-            <div class="flex gap-4 justify-center">
-                <button onclick="cancelActivation('${id}')" class="bg-red-100 text-red-600 px-6 py-3 rounded-xl font-bold hover:bg-red-200 transition">Cancel</button>
-                <button onclick="copyToClipboard('${num}')" class="bg-blue-100 text-blue-600 px-6 py-3 rounded-xl font-bold hover:bg-blue-200 transition">Copy Number</button>
+            <div class="flex gap-3">
+                <button onclick="window.location.reload()" class="flex-1 bg-red-100 text-red-600 py-3 rounded-xl font-bold">Cancel</button>
+                <button onclick="navigator.clipboard.writeText('${num}');alert('Copied!')" class="flex-1 bg-blue-100 text-blue-600 py-3 rounded-xl font-bold">Copy</button>
             </div>
         </div>
     `;
 
-    // Start Polling
-    if (otpPollingInterval) clearInterval(otpPollingInterval);
-    
-    otpPollingInterval = setInterval(async () => {
-        try {
-            const res = await fetch(`/.netlify/functions/api-bridge?action=getStatus&id=${id}`);
-            const data = await res.json();
-            const status = data.message;
-
-            if (status.includes("STATUS_OK")) {
-                const otpCode = status.split(':')[1];
-                document.getElementById('otpBox').innerHTML = `
-                    <p class="text-xs font-bold text-green-500 uppercase mb-1">OTP Received!</p>
-                    <h3 class="text-5xl font-black text-slate-800 tracking-widest">${otpCode}</h3>
-                `;
-                clearInterval(otpPollingInterval);
-                playNotificationSound(); // Optional
-            } else if (status === "STATUS_CANCEL") {
-                document.getElementById('otpBox').innerHTML = `<p class="text-red-500 font-bold">Order Cancelled</p>`;
-                clearInterval(otpPollingInterval);
-            }
-        } catch (e) { console.log("Polling error..."); }
+    // Start Polling OTP every 5 seconds
+    if(pollingTimer) clearInterval(pollingTimer);
+    pollingTimer = setInterval(async () => {
+        const status = await callApi(`action=getStatus&id=${id}`);
+        if(status.includes("STATUS_OK")) {
+            const code = status.split(':')[1];
+            document.getElementById('otpBox').innerHTML = `
+                <p class="text-xs font-bold text-green-600 mb-1">CODE RECEIVED!</p>
+                <h3 class="text-5xl font-black text-slate-800 tracking-widest">${code}</h3>
+            `;
+            clearInterval(pollingTimer);
+        }
     }, 5000);
 }
-
-// --- 7. HELPER FUNCTIONS ---
-
-// Pipe separated data (0:Russia|1:USA) ko object mein badalna
-function parsePipeData(str) {
-    let obj = {};
-    str.split('|').forEach(item => {
-        let [id, name] = item.split(':');
-        if(id && name) obj[id] = name;
-    });
-    return obj;
-}
-
-// Global functions for buttons
-window.copyToClipboard = (text) => {
-    navigator.clipboard.writeText(text);
-    alert("Number copied!");
-};
-
-window.cancelActivation = async (id) => {
-    if(confirm("Are you sure to cancel? Money will be refunded (if API allows).")) {
-        const res = await fetch(`/.netlify/functions/api-bridge?action=setStatus&id=${id}&status=8`);
-        alert("Cancel request sent.");
-        location.reload(); // Refresh to reset UI
-    }
-};
 
 // Logout
 document.getElementById('logoutBtn').addEventListener('click', () => {
     signOut(auth).then(() => window.location.href = "auth.html");
 });
+
+AOS.init({ once: true });
