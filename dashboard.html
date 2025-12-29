@@ -3,176 +3,80 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TESTING MODE | Wasi OTP</title>
+    <title>Dashboard | Wasi OTP</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link href="https://unpkg.com/aos@2.3.1/dist/aos.css" rel="stylesheet">
     <style>
         .blue-grad { background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%); }
+        .glass-card { background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(10px); }
     </style>
 </head>
-<body class="bg-gray-50 text-slate-900 p-4 md:p-10">
+<body class="bg-gray-50 text-slate-900 flex min-h-screen">
 
-    <div class="max-w-4xl mx-auto">
-        <!-- Header -->
-        <div class="flex justify-between items-center mb-10 bg-white p-6 rounded-3xl shadow-sm border border-blue-100">
+    <!-- SIDEBAR -->
+    <aside class="w-64 blue-grad text-white hidden md:flex flex-col p-6 fixed h-full shadow-2xl z-50">
+        <h1 class="text-2xl font-black tracking-tighter mb-10 uppercase">Wasi <span class="text-blue-200">Otp</span></h1>
+        <nav class="space-y-4 flex-1">
+            <a href="#" class="flex items-center p-3 bg-white/20 rounded-xl font-bold"><i class="fa-solid fa-gauge mr-3"></i> Dashboard</a>
+            <a href="#" class="flex items-center p-3 hover:bg-white/10 rounded-xl transition"><i class="fa-solid fa-wallet mr-3"></i> Deposit</a>
+            <a href="#" class="flex items-center p-3 hover:bg-white/10 rounded-xl transition"><i class="fa-solid fa-history mr-3"></i> History</a>
+        </nav>
+        <button id="logoutBtn" class="flex items-center p-3 text-red-200 hover:text-white transition font-bold"><i class="fa-solid fa-power-off mr-3"></i> Logout</button>
+    </aside>
+
+    <!-- MAIN -->
+    <main class="flex-1 md:ml-64 p-4 md:p-10">
+        
+        <!-- HEADER -->
+        <div class="flex justify-between items-center mb-10 bg-white p-6 rounded-[2rem] shadow-sm border border-blue-50">
             <div>
-                <h1 class="text-2xl font-black text-blue-700 uppercase">Testing <span class="text-slate-800">Panel</span></h1>
-                <p class="text-xs font-bold text-red-500 uppercase tracking-widest mt-1">Firebase Login Bypassed (Testing Only)</p>
+                <h2 class="text-xl font-bold">Welcome, <span id="userName" class="text-blue-600">User</span></h2>
+                <p class="text-xs font-bold text-slate-400 uppercase tracking-widest">Pakistan's No.1 OTP Panel</p>
             </div>
             <div class="text-right">
-                <p class="text-xs font-black text-slate-400 uppercase tracking-widest">Test Balance</p>
-                <p class="text-2xl font-black text-green-600">RS <span id="userBalance">5000.00</span></p>
+                <p class="text-xs font-black text-slate-400 uppercase tracking-widest">Balance</p>
+                <p class="text-2xl font-black text-green-600">RS <span id="userBalanceDisplay">0.00</span></p>
             </div>
         </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <!-- Left Side: Selection -->
-            <div class="space-y-6">
-                <!-- Country -->
-                <div class="bg-white p-6 rounded-3xl shadow-sm border border-blue-100">
-                    <label class="block text-xs font-black text-blue-700 uppercase mb-3">1. Select Server</label>
-                    <select id="countrySelect" class="w-full bg-gray-50 border-2 border-gray-100 rounded-2xl p-4 font-bold outline-none focus:border-blue-600">
-                        <option value="">Loading Countries...</option>
-                    </select>
-                </div>
-
-                <!-- Service -->
-                <div class="bg-white p-6 rounded-3xl shadow-sm border border-blue-100">
-                    <label class="block text-xs font-black text-blue-700 uppercase mb-3">2. Select Service</label>
-                    <select id="serviceSelect" class="w-full bg-gray-50 border-2 border-gray-100 rounded-2xl p-4 font-bold outline-none focus:border-blue-600">
-                        <option value="">Choose Country First</option>
-                    </select>
-                </div>
-
-                <!-- Price & Buy -->
-                <div class="bg-white p-6 rounded-3xl shadow-sm border border-blue-100 flex items-center justify-between">
-                    <div>
-                        <p class="text-xs font-bold text-slate-400 uppercase">Price</p>
-                        <h3 class="text-2xl font-black text-slate-800 italic">RS <span id="priceDisplay">0</span></h3>
-                    </div>
-                    <button id="getNumberBtn" class="blue-grad text-white px-8 py-4 rounded-2xl font-black shadow-lg shadow-blue-200 active:scale-95 transition">GET NUMBER</button>
-                </div>
+        <!-- ORDER CONTROLS -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-10">
+            <div class="bg-white p-6 rounded-[2rem] shadow-sm border border-blue-100" data-aos="fade-up">
+                <label class="block text-xs font-black text-blue-700 uppercase mb-3">1. Select Country</label>
+                <select id="countrySelect" class="w-full bg-gray-50 border-2 border-gray-100 rounded-2xl p-4 font-bold outline-none focus:border-blue-600 transition">
+                    <option value="">Loading Servers...</option>
+                </select>
             </div>
 
-            <!-- Right Side: Display -->
-            <div class="bg-white p-8 rounded-[2.5rem] shadow-sm border border-blue-100 min-h-[300px] flex flex-col items-center justify-center">
-                <h3 class="text-sm font-black text-slate-400 uppercase mb-6 tracking-widest">Result Area</h3>
-                <div id="activeNumberDisplay" class="w-full text-center">
-                    <div class="border-2 border-dashed border-gray-100 p-10 rounded-3xl">
-                        <i class="fa-solid fa-tower-broadcast text-4xl text-blue-100 mb-4"></i>
-                        <p class="text-slate-400 font-bold italic text-sm">Waiting for selection...</p>
-                    </div>
+            <div class="bg-white p-6 rounded-[2rem] shadow-sm border border-blue-100" data-aos="fade-up" data-aos-delay="100">
+                <label class="block text-xs font-black text-blue-700 uppercase mb-3">2. Select Service</label>
+                <select id="serviceSelect" class="w-full bg-gray-50 border-2 border-gray-100 rounded-2xl p-4 font-bold outline-none focus:border-blue-600 transition">
+                    <option value="">Choose Country First</option>
+                </select>
+            </div>
+
+            <div class="bg-white p-6 rounded-[2rem] shadow-sm border border-blue-100 flex flex-col justify-between" data-aos="fade-up" data-aos-delay="200">
+                <div class="text-center">
+                    <p class="text-xs font-bold text-slate-400 uppercase">Total Price</p>
+                    <h4 class="text-3xl font-black text-slate-800">RS <span id="finalPrice">0.00</span></h4>
                 </div>
+                <button id="getNumberBtn" class="w-full blue-grad text-white py-4 rounded-2xl text-lg font-black shadow-xl shadow-blue-200 hover:scale-[1.02] transition transform active:scale-95 mt-4">Get Number</button>
             </div>
         </div>
-    </div>
 
-    <!-- TESTING LOGIC -->
-    <script>
-        // --- 1. Load Countries ---
-        async function loadCountries() {
-            try {
-                const response = await fetch('/.netlify/functions/api-bridge?action=getCountries');
-                const data = await response.json();
-                const countrySelect = document.getElementById('countrySelect');
-                
-                // netlify function sends back { message: "0:Russia|1:USA..." }
-                let countries = data.message;
-                countrySelect.innerHTML = '<option value="">-- Select Country --</option>';
-                
-                countries.split('|').forEach(item => {
-                    let [id, name] = item.split(':');
-                    if(id && name) {
-                        let opt = document.createElement('option');
-                        opt.value = id;
-                        opt.innerText = name;
-                        countrySelect.appendChild(opt);
-                    }
-                });
-            } catch (err) {
-                alert("CORS Error ya Function not found! Kya aapne 'netlify dev' chalaya hai?");
-            }
-        }
+        <!-- ACTIVE NUMBER AREA -->
+        <div id="activeNumberSection" class="bg-white p-8 rounded-[2.5rem] shadow-sm border border-blue-100 min-h-[300px]" data-aos="fade-up">
+            <h3 class="text-xl font-black mb-6 text-slate-800"><i class="fa-solid fa-bolt-lightning mr-3 text-blue-600"></i> Active Activation</h3>
+            <div id="numberDisplay" class="flex flex-col items-center justify-center py-10 border-2 border-dashed border-gray-100 rounded-[2rem]">
+                <i class="fa-solid fa-tower-broadcast text-5xl text-blue-50 mb-4"></i>
+                <p class="text-slate-400 font-bold italic">No active order. Select service to get number.</p>
+            </div>
+        </div>
 
-        // --- 2. Load Services ---
-        document.getElementById('countrySelect').onchange = async (e) => {
-            const countryId = e.target.value;
-            if(!countryId) return;
+    </main>
 
-            const serviceSelect = document.getElementById('serviceSelect');
-            serviceSelect.innerHTML = '<option>Loading...</option>';
-
-            try {
-                const response = await fetch(`/.netlify/functions/api-bridge?action=getServices&country=${countryId}`);
-                const data = await response.json();
-                
-                // Assuming services come back as JSON array in data.message
-                let services = JSON.parse(data.message);
-                serviceSelect.innerHTML = '<option value="">-- Select Service --</option>';
-                
-                services.forEach(s => {
-                    let opt = document.createElement('option');
-                    opt.value = s.code;
-                    let pkr = Math.ceil((s.price * 4) + 20); // Test Profit
-                    opt.innerText = `${s.name.toUpperCase()} - RS ${pkr}`;
-                    opt.dataset.price = pkr;
-                    serviceSelect.appendChild(opt);
-                });
-            } catch (err) {
-                serviceSelect.innerHTML = '<option>No services found</option>';
-            }
-        };
-
-        // Price display
-        document.getElementById('serviceSelect').onchange = (e) => {
-            const price = e.target.selectedOptions[0].dataset.price || 0;
-            document.getElementById('priceDisplay').innerText = price;
-        };
-
-        // --- 3. Get Number ---
-        document.getElementById('getNumberBtn').onclick = async () => {
-            const c = document.getElementById('countrySelect').value;
-            const s = document.getElementById('serviceSelect').value;
-            if(!c || !s) return alert("Select Both!");
-
-            const btn = document.getElementById('getNumberBtn');
-            btn.innerText = "Requesting...";
-            btn.disabled = true;
-
-            try {
-                const res = await fetch(`/.netlify/functions/api-bridge?action=getNumber&country=${c}&service=${s}`);
-                const data = await res.json();
-                const msg = data.message; // ACCESS_NUMBER:ID:NUMBER
-
-                if(msg.includes("ACCESS_NUMBER")) {
-                    const [_, id, num] = msg.split(':');
-                    showResult(num, id);
-                } else {
-                    alert("API Response: " + msg);
-                }
-            } catch (err) {
-                alert("Error calling Netlify function.");
-            } finally {
-                btn.innerText = "GET NUMBER";
-                btn.disabled = false;
-            }
-        };
-
-        function showResult(num, id) {
-            document.getElementById('activeNumberDisplay').innerHTML = `
-                <div class="bg-blue-50 p-6 rounded-3xl border-2 border-blue-200">
-                    <p class="text-xs font-bold text-blue-600 mb-2">NUMBER GENERATED</p>
-                    <h2 class="text-3xl font-black mb-4">${num}</h2>
-                    <div id="otpBox" class="bg-white p-4 rounded-2xl border-2 border-dashed border-blue-200">
-                        <p class="animate-pulse text-slate-400">Waiting for OTP...</p>
-                    </div>
-                </div>
-            `;
-            // Yahan aap Polling ka code bhi dal sakte hain testing ke liye
-        }
-
-        // Start
-        loadCountries();
-    </script>
+    <script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
+    <script type="module" src="dashboard.js"></script>
 </body>
 </html>
