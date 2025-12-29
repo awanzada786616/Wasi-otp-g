@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wasi OTP | Testing Panel</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>.blue-grad { background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%); }</style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+
+    <nav class="bg-white p-5 border-b border-gray-100 flex justify-between items-center sticky top-0 z-50">
+        <h1 class="text-2xl font-black text-blue-700 italic">WASI <span class="text-slate-800">OTP</span></h1>
+        <div class="bg-red-50 px-4 py-2 rounded-2xl border border-red-100">
+            <span class="text-[10px] font-black text-red-500 uppercase">Test Mode (Bypassed)</span>
+            <p class="text-lg font-black text-slate-700 leading-none">DEMO RS 5,000.00</p>
+        </div>
+    </nav>
+
+    <div class="max-w-6xl mx-auto p-4 md:p-10 grid grid-cols-1 lg:grid-cols-12 gap-8">
+        <!-- Purchase Panel -->
+        <div class="lg:col-span-5 space-y-6">
+            <div class="bg-white p-8 rounded-[2.5rem] shadow-sm border border-gray-100 space-y-6">
+                <h3 class="text-xs font-black text-blue-700 uppercase tracking-widest border-b pb-4">Select Server</h3>
+                
+                <div>
+                    <label class="block text-[10px] font-bold text-slate-400 uppercase mb-2 ml-1">1. Choose Country</label>
+                    <select id="countrySelect" class="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl p-4 font-bold outline-none focus:border-blue-600 transition">
+                        <option value="">-- Choose Country --</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-[10px] font-bold text-slate-400 uppercase mb-2 ml-1">2. Choose Service</label>
+                    <select id="serviceSelect" class="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl p-4 font-bold outline-none focus:border-blue-600 transition">
+                        <option value="">Select country first</option>
+                    </select>
+                </div>
+
+                <div class="bg-slate-900 p-6 rounded-3xl flex justify-between items-center shadow-2xl">
+                    <div class="text-white">
+                        <p class="text-[10px] font-bold text-slate-500 uppercase">Cost (PKR)</p>
+                        <h4 class="text-3xl font-black italic">RS <span id="priceDisplay">0.00</span></h4>
+                    </div>
+                    <button id="buyBtn" class="bg-blue-600 text-white px-8 py-4 rounded-2xl font-black shadow-lg active:scale-95 transition">GET NUMBER</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Output Result -->
+        <div class="lg:col-span-7">
+            <div id="activeOrder" class="hidden bg-white rounded-[3rem] p-10 border border-blue-100 text-center shadow-xl shadow-blue-50">
+                <div class="inline-block bg-green-100 text-green-700 px-6 py-2 rounded-full text-xs font-black uppercase tracking-widest mb-6 tracking-tighter">Number Ready</div>
+                <h2 id="orderNum" class="text-6xl md:text-8xl font-black text-slate-800 tracking-tighter mb-8 italic">---</h2>
+                <div class="bg-blue-50 p-10 rounded-[3rem] border-2 border-dashed border-blue-200">
+                    <p id="otpStatus" class="text-xs font-black text-blue-400 uppercase animate-pulse mb-2">Waiting for SMS Code...</p>
+                    <h3 id="orderOtp" class="text-8xl font-black text-blue-700 tracking-widest"></h3>
+                </div>
+                <div class="flex gap-4 justify-center mt-8">
+                    <button onclick="location.reload()" class="bg-red-50 text-red-600 px-10 py-4 rounded-2xl font-black uppercase tracking-widest text-sm">Cancel / Finish</button>
+                    <button id="copyBtn" class="bg-slate-900 text-white px-10 py-4 rounded-2xl font-black uppercase tracking-widest text-sm shadow-xl">Copy Number</button>
+                </div>
+            </div>
+
+            <div id="idleState" class="text-center py-32 bg-white rounded-[3rem] border border-gray-100 opacity-50">
+                <i class="fa-solid fa-tower-broadcast text-8xl mb-4 text-blue-100"></i>
+                <p class="font-bold italic text-slate-400 uppercase tracking-widest text-sm">Select options to allocate a number</p>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
